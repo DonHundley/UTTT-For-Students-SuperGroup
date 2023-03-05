@@ -9,12 +9,14 @@ import dk.easv.bll.move.IMove;
 import java.math.*;
 import java.time.*;
 import java.util.*;
+import java.util.stream.*;
 
 public class ImprovedSneaky implements IBot {
-    final int moveTimeMs = 1000;
+    final int moveTimeMs = 900;
     private String BOT_NAME = getClass().getSimpleName();
-    ArrayList<IMove> results;
-    long time;
+
+    private long time;
+
 
     private ImprovedSneaky.GameSimulator createSimulator(IGameState state) {
         ImprovedSneaky.GameSimulator simulator = new ImprovedSneaky.GameSimulator(new GameState());
@@ -30,15 +32,19 @@ public class ImprovedSneaky implements IBot {
     @Override
     public IMove doMove(IGameState state) {
 
-        time = System.currentTimeMillis();
+
         return calculateWinningMove(state, moveTimeMs);
     }
     // Plays single games until it wins and returns the first move for that. If iterations reached with no clear win, just return random valid move
     private IMove calculateWinningMove(IGameState state, int maxTimeMs){
+        HashMap<Integer, IMove> simMoves = new HashMap<>();
+        List<IMove> winMoves = getWinningMoves(state);
 
+        time = System.currentTimeMillis();
         Random rand = new Random();
-        int count = 0;
 
+        int count = 0;
+        int hashIndex = 1;
         while (System.currentTimeMillis() < time + maxTimeMs) { // check how much time has passed, stop if over maxTimeMs
             ImprovedSneaky.GameSimulator simulator = createSimulator(state);
             IGameState gs = simulator.getCurrentState();
@@ -62,25 +68,128 @@ public class ImprovedSneaky implements IBot {
             }
 
             if (simulator.getGameOver()== ImprovedSneaky.GameOverState.Win){
-                System.out.println("Found a win, :)");
-                results.add(winnerMove);
-                //System.out.println(winnerMove.toString());
-                System.out.println(time - System.currentTimeMillis());
-                System.out.println(results.size());
-                System.out.println(results);
+                //System.out.println("Found a win, :)");
+
+                simMoves.put(hashIndex, winnerMove);
+                hashIndex++;
+                //System.out.println(simMoves.size());
+                //System.out.println(time - System.currentTimeMillis());
+
+                //System.out.println(results);
             }
             count++;
         }
-        System.out.println("Did not win, just doing random :¨(");
-        List<IMove> moves = state.getField().getAvailableMoves();
-        IMove randomMovePlayer = moves.get(rand.nextInt(moves.size()));
+        //System.out.println("Did not win, just doing random :¨(");
+        //List<IMove> moves = state.getField().getAvailableMoves();
+        //IMove randomMovePlayer = moves.get(rand.nextInt(moves.size()));
 
-        return randomMovePlayer; // just play randomly if solution not found
 
+        if(!winMoves.isEmpty())
+            return winMoves.get(0);
+
+
+        IMove move = getMostFrequentValue(simMoves);
+
+        //System.out.println(getMostFrequentValue(simMoves));
+        //return randomMovePlayer; // just play randomly if solution not found
+        return move;
 
     }
 
+    /**
+     * Get the most frequent value present in a map.
+     *
+     * @param map
+     *          The map to search.
+     * @return The most frequent value in the map (or null).
+     */
+    private static <K, V> V getMostFrequentValue(
+            Map<K, V> map) {
+        // Make sure we have an entry.
+        if (map != null && map.size() > 0) {
+            // the entryset from our input.
+            Set<Map.Entry<K, V>> entries = map.entrySet();
 
+            // we need a map to hold the count.
+            Map<V, Integer> countMap = new HashMap<V, Integer>();
+            // iterate the entries.
+            for (Map.Entry<K, V> entry : entries) {
+                // get the value.
+                V value = entry.getValue();
+
+                if (countMap.containsKey(value)) {
+                    // if we've seen it before increment the previous
+                    // value.
+                    countMap.put(value, countMap.get(value) + 1);
+                } else {
+                    // otherwise, store 1.
+                    countMap.put(value, 1);
+                }
+            }
+            // A holder for the maximum.
+            V maxV = null;
+            for (Map.Entry<V, Integer> count : countMap.entrySet()) {
+                if (maxV == null) {
+                    maxV = count.getKey();
+                    continue;
+                }
+                if (count.getValue() > countMap.get(maxV)) {
+                    maxV = count.getKey();
+                }
+            }
+            return maxV;
+        }
+        return null;
+    }
+
+    // Simplified version of checking if win. Check the GameManager class to see another similar solution
+    private boolean isWinningMove(IGameState state, IMove move, String player){
+        // Clones the array and all values to a new array, so we don't mess with the game
+        String[][] board = Arrays.stream(state.getField().getBoard()).map(String[]::clone).toArray(String[][]::new);
+
+        //Places the player in the game. Sort of a simulation.
+        board[move.getX()][move.getY()] = player;
+
+        int startX = move.getX()-(move.getX()%3);
+        if(board[startX][move.getY()]==player)
+            if (board[startX][move.getY()] == board[startX+1][move.getY()] &&
+                    board[startX+1][move.getY()] == board[startX+2][move.getY()])
+                return true;
+
+        int startY = move.getY()-(move.getY()%3);
+        if(board[move.getX()][startY]==player)
+            if (board[move.getX()][startY] == board[move.getX()][startY+1] &&
+                    board[move.getX()][startY+1] == board[move.getX()][startY+2])
+                return true;
+
+
+        if(board[startX][startY]==player)
+            if (board[startX][startY] == board[startX+1][startY+1] &&
+                    board[startX+1][startY+1] == board[startX+2][startY+2])
+                return true;
+
+        if(board[startX][startY+2]==player)
+            if (board[startX][startY+2] == board[startX+1][startY+1] &&
+                    board[startX+1][startY+1] == board[startX+2][startY])
+                return true;
+
+        return false;
+    }
+    // Compile a list of all available winning moves
+    private List<IMove> getWinningMoves(IGameState state){
+        String player = "1";
+        if(state.getMoveNumber()%2==0)
+            player="0";
+
+        List<IMove> avail = state.getField().getAvailableMoves();
+
+        List<IMove> winningMoves = new ArrayList<>();
+        for (IMove move:avail) {
+            if(isWinningMove(state,move,player))
+                winningMoves.add(move);
+        }
+        return winningMoves;
+    }
 
 
     /*
