@@ -15,6 +15,7 @@ public class ImprovedSneaky implements IBot {
     final int moveTimeMs = 900;
     private String BOT_NAME = getClass().getSimpleName();
 
+    private String player = "1";
     private long time;
 
 
@@ -35,16 +36,25 @@ public class ImprovedSneaky implements IBot {
 
         return calculateWinningMove(state, moveTimeMs);
     }
+
     // Plays single games until it wins and returns the first move for that. If iterations reached with no clear win, just return random valid move
     private IMove calculateWinningMove(IGameState state, int maxTimeMs){
         HashMap<Integer, IMove> simMoves = new HashMap<>();
         List<IMove> winMoves = getWinningMoves(state);
 
+        List<IMove> losingMoves = getLosingMoves(state);
         time = System.currentTimeMillis();
         Random rand = new Random();
 
         int count = 0;
         int hashIndex = 1;
+
+        if(!winMoves.isEmpty()){
+            return winMoves.get(0);
+        } else if (!losingMoves.isEmpty()) {
+            return losingMoves.get(0);
+        }else
+
         while (System.currentTimeMillis() < time + maxTimeMs) { // check how much time has passed, stop if over maxTimeMs
             ImprovedSneaky.GameSimulator simulator = createSimulator(state);
             IGameState gs = simulator.getCurrentState();
@@ -80,19 +90,19 @@ public class ImprovedSneaky implements IBot {
             count++;
         }
         //System.out.println("Did not win, just doing random :¨(");
-        //List<IMove> moves = state.getField().getAvailableMoves();
-        //IMove randomMovePlayer = moves.get(rand.nextInt(moves.size()));
-
-
-        if(!winMoves.isEmpty())
-            return winMoves.get(0);
-
+        List<IMove> moves = state.getField().getAvailableMoves();
+        IMove randomMovePlayer = moves.get(rand.nextInt(moves.size()));
 
         IMove move = getMostFrequentValue(simMoves);
-
-        //System.out.println(getMostFrequentValue(simMoves));
-        //return randomMovePlayer; // just play randomly if solution not found
-        return move;
+        if (move != null) {
+            return move;
+        } else if (!simMoves.isEmpty()) {
+            System.out.println("simMoves found no wins, size is " + simMoves.size());
+            move = simMoves.get(0);
+            return move;
+        } else
+            System.out.println("simMoves is empty!");
+            return randomMovePlayer; // just play randomly if solution not found
 
     }
 
@@ -151,33 +161,33 @@ public class ImprovedSneaky implements IBot {
         board[move.getX()][move.getY()] = player;
 
         int startX = move.getX()-(move.getX()%3);
-        if(board[startX][move.getY()]==player)
-            if (board[startX][move.getY()] == board[startX+1][move.getY()] &&
-                    board[startX+1][move.getY()] == board[startX+2][move.getY()])
+        if(board[startX][move.getY()].equals(player))
+            if (board[startX][move.getY()].equals(board[startX + 1][move.getY()]) &&
+                    board[startX + 1][move.getY()].equals(board[startX + 2][move.getY()]))
                 return true;
 
         int startY = move.getY()-(move.getY()%3);
-        if(board[move.getX()][startY]==player)
-            if (board[move.getX()][startY] == board[move.getX()][startY+1] &&
-                    board[move.getX()][startY+1] == board[move.getX()][startY+2])
+        if(board[move.getX()][startY].equals(player))
+            if (board[move.getX()][startY].equals(board[move.getX()][startY + 1]) &&
+                    board[move.getX()][startY + 1].equals(board[move.getX()][startY + 2]))
                 return true;
 
 
-        if(board[startX][startY]==player)
-            if (board[startX][startY] == board[startX+1][startY+1] &&
-                    board[startX+1][startY+1] == board[startX+2][startY+2])
+        if(board[startX][startY].equals(player))
+            if (board[startX][startY].equals(board[startX + 1][startY + 1]) &&
+                    board[startX + 1][startY + 1].equals(board[startX + 2][startY + 2]))
                 return true;
 
-        if(board[startX][startY+2]==player)
-            if (board[startX][startY+2] == board[startX+1][startY+1] &&
-                    board[startX+1][startY+1] == board[startX+2][startY])
+        if(board[startX][startY + 2].equals(player))
+            if (board[startX][startY + 2].equals(board[startX + 1][startY + 1]) &&
+                    board[startX + 1][startY + 1].equals(board[startX + 2][startY]))
                 return true;
 
         return false;
     }
     // Compile a list of all available winning moves
     private List<IMove> getWinningMoves(IGameState state){
-        String player = "1";
+        //String player = "1";
         if(state.getMoveNumber()%2==0)
             player="0";
 
@@ -190,6 +200,25 @@ public class ImprovedSneaky implements IBot {
         }
         return winningMoves;
     }
+
+    private List<IMove> getLosingMoves(IGameState state){
+
+        if(player.equals("1"))
+            player ="0";
+
+        List<IMove> avail = state.getField().getAvailableMoves();
+
+        List<IMove> losingMoves = new ArrayList<>();
+        for (IMove move:avail) {
+            if(isWinningMove(state,move,player))
+                losingMoves.add(move);
+        }
+        player = "1";
+        return losingMoves;
+    }
+
+
+
 
 
     /*
